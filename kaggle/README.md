@@ -1,4 +1,3 @@
 # Time_Series_Exercises
-Time series exercises from the Kaggle site
+[Time series exercises from the Kaggle site](https://www.kaggle.com/learn/time-series)
 
-https://www.kaggle.com/learn/time-series
