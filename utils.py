@@ -9,6 +9,6 @@ def print_doctest(func):
 def print_locals(name, locals_):
     for k, v in locals_.items():
         try:
-          print(name, '-', k, '=', v, '-', v.shape)
+            print(name, '-', k, '=', v, '-', v.shape)
         except:
-          print(name, '-', k, '=', v)
+            print(name, '-', k, '=', v)
