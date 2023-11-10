@@ -47,6 +47,9 @@ from torch import nn
 from torch.nn import functional as F
 from torchvision import transforms
 
+import matplotlib
+from typing import Any
+
 def use_svg_display():
     """Use the svg format to display a plot in Jupyter.
 
@@ -1564,8 +1567,31 @@ def bbox_to_rect(bbox, color):
         xy=(bbox[0], bbox[1]), width=bbox[2]-bbox[0], height=bbox[3]-bbox[1],
         fill=False, edgecolor=color, linewidth=2)
 
-def multibox_prior(data, sizes, ratios):
+def multibox_prior(data: torch.Tensor, sizes: tuple[float],
+                   ratios: tuple[float]) -> torch.Tensor:
     """Generate anchor boxes with different shapes centered on each pixel.
+
+    Args:
+        data: Input data tensor with shape(1, 3, h, w).
+        sizes: Sizes for anchor boxes.
+        ratios: Ratios for anchor boxes.
+
+    Returns:
+        Anchor boxes tensor with
+        shape: (1, (len(sizes) + len(ratios) - 1) * h * w, 4).
+
+    Example:
+        >>> X = torch.rand(size=(1, 3, 561, 728))
+        >>> sizes = (0.75, 0.5, 0.25)
+        >>> ratios = (1, 2, 0.5)
+        >>> multibox_prior(X, sizes, ratios) # doctest: +ELLIPSIS
+        tensor([[[-0.29, -0.37,  0.29,  0.38],
+                [-0.19, -0.25,  0.19,  0.25],
+                [-0.10, -0.12,  0.10,  0.13],
+                ...,
+                [ 0.90,  0.87,  1.10,  1.12],
+                [ 0.59,  0.73,  1.41,  1.26],
+                [ 0.79,  0.47,  1.20,  1.53]]])
 
     Defined in :numref:`sec_anchor`"""
     in_height, in_width = data.shape[-2:]
@@ -1603,12 +1629,32 @@ def multibox_prior(data, sizes, ratios):
     output = out_grid + anchor_manipulations
     return output.unsqueeze(0)
 
-def show_bboxes(axes, bboxes, labels=None, colors=None):
+def show_bboxes(axes: matplotlib.image.AxesImage.axes,
+                bboxes: tuple[torch.Tensor],
+                labels: Any = None,
+                colors: Any = None):
     """Show bounding boxes.
 
+    Args:
+        axes: matplotlib Axes object to draw the bounding boxes on.
+        bboxes: Bounding boxes.
+        labels: Labels corresponding to each bounding box (optional).
+        colors: Colors to use for each bounding box (optional).
+
+    Returns:
+        None
     Defined in :numref:`sec_anchor`"""
 
-    def make_list(obj, default_values=None):
+    def make_list(obj: Any, default_values=None):
+        """Convert object to a list.
+
+        Args:
+            obj: Object to convert to a list.
+            default_values: Default values to use if obj is None.
+
+        Returns:
+            List representation of the object.
+        """
         if obj is None:
             obj = default_values
         elif not isinstance(obj, (list, tuple)):
@@ -1627,8 +1673,30 @@ def show_bboxes(axes, bboxes, labels=None, colors=None):
                       va='center', ha='center', fontsize=9, color=text_color,
                       bbox=dict(facecolor=color, lw=0))
 
-def box_iou(boxes1, boxes2):
+def box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Tensor:
     """Compute pairwise IoU across two lists of anchor or bounding boxes.
+
+    Args:
+        boxes1 (tensor): List of bounding boxes with shape (no. of boxes1, 4)
+        boxes2 (tensor): List of bounding boxes with shape (no. of boxes2, 4)
+
+    Returns:
+        tensor: Pairwise IoU values with shape (no. of boxes1, no. of boxes2)
+
+    Example:
+        >>> boxes1 = torch.tensor([[0.00, 0.10, 0.20, 0.30],
+        ...                        [0.15, 0.20, 0.40, 0.40],
+        ...                        [0.63, 0.05, 0.88, 0.98],
+        ...                        [0.66, 0.45, 0.80, 0.80],
+        ...                        [0.57, 0.30, 0.92, 0.90]])
+        >>> boxes2 = torch.tensor([[0.10, 0.08, 0.52, 0.92],
+        ...                        [0.55, 0.20, 0.90, 0.88]])
+        >>> box_iou(boxes1, boxes2)
+        tensor([[0.05, 0.00],
+                [0.14, 0.00],
+                [0.00, 0.57],
+                [0.00, 0.21],
+                [0.00, 0.75]])
 
     Defined in :numref:`sec_anchor`"""
     box_area = lambda boxes: ((boxes[:, 2] - boxes[:, 0]) *
@@ -1647,8 +1715,34 @@ def box_iou(boxes1, boxes2):
     union_areas = areas1[:, None] + areas2 - inter_areas
     return inter_areas / union_areas
 
-def assign_anchor_to_bbox(ground_truth, anchors, device, iou_threshold=0.5):
+def assign_anchor_to_bbox(ground_truth: torch.Tensor,
+                          anchors: torch.Tensor,
+                          device: torch.device,
+                          iou_threshold: float = 0.5) -> torch.Tensor:
     """Assign closest ground-truth bounding boxes to anchor boxes.
+
+    Parameters:
+        ground_truth: Tensor containing ground truth bounding boxes
+        with shape (G, 4).
+        anchors: Tensor containing anchor boxes with shape (N, 4).
+        device: Device on which the tensors are located.
+        iou_threshold: IoU threshold for assigning ground truth boxes to
+        anchor boxes.
+
+    Returns:
+        Tensor containing the assigned ground truth bounding box for each anchor
+        with shape (N,).
+
+    Example:
+        >>> anchors = torch.tensor([[0.00, 0.10, 0.20, 0.30],
+        ...                         [0.15, 0.20, 0.40, 0.40],
+        ...                         [0.63, 0.05, 0.88, 0.98],
+        ...                         [0.66, 0.45, 0.80, 0.80],
+        ...                         [0.57, 0.30, 0.92, 0.90]])
+        >>> labels = torch.tensor([[0.10, 0.08, 0.52, 0.92],
+        ...                        [0.55, 0.20, 0.90, 0.88]])
+        >>> assign_anchor_to_bbox(labels, anchors, anchors.device)
+        tensor([-1,  0,  1, -1,  1])
 
     Defined in :numref:`sec_anchor`"""
     num_anchors, num_gt_boxes = anchors.shape[0], ground_truth.shape[0]
@@ -1675,8 +1769,35 @@ def assign_anchor_to_bbox(ground_truth, anchors, device, iou_threshold=0.5):
         jaccard[anc_idx, :] = row_discard
     return anchors_bbox_map
 
-def offset_boxes(anchors, assigned_bb, eps=1e-6):
-    """Transform for anchor box offsets.
+def offset_boxes(anchors: torch.Tensor, assigned_bb: torch.Tensor,
+                 eps: float=1e-6):
+    """Transforms for anchor box offsets.
+
+    Parameters:
+        anchors: Tensor containing the anchor boxes with shape (N, 4).
+        assigned_bb: Tensor containing the assigned bounding boxes with shape (N, 4).
+        eps: Small value used for numerical stability.
+
+    Returns:
+        offset: Tensor containing the transformed anchor box offsets with shape (N, 4) in xywh format.
+
+    Example:
+        >>> anchors = torch.tensor([[0.00, 0.10, 0.20, 0.30],
+        ...                         [0.15, 0.20, 0.40, 0.40],
+        ...                         [0.63, 0.05, 0.88, 0.98],
+        ...                         [0.66, 0.45, 0.80, 0.80],
+        ...                         [0.57, 0.30, 0.92, 0.90]])
+        >>> assigned_bb = torch.tensor([[0.00, 0.00, 0.00, 0.00],
+        ...                             [0.10, 0.08, 0.52, 0.92],
+        ...                             [0.55, 0.20, 0.90, 0.88],
+        ...                             [0.00, 0.00, 0.00, 0.00],
+        ...                             [0.55, 0.20, 0.90, 0.88]])
+        >>> offset_boxes(anchors, assigned_bb)
+        tensor([[-5.00e+00, -1.00e+01, -6.91e+01, -6.91e+01],
+                [ 1.40e+00,  1.00e+01,  2.59e+00,  7.18e+00],
+                [-1.20e+00,  2.69e-01,  1.68e+00, -1.57e+00],
+                [-5.21e+01, -1.79e+01, -6.91e+01, -6.91e+01],
+                [-5.71e-01, -1.00e+00,  4.17e-06,  6.26e-01]])
 
     Defined in :numref:`subsec_labeling-anchor-boxes`"""
     c_anc = d2l.box_corner_to_center(anchors)
@@ -1686,8 +1807,34 @@ def offset_boxes(anchors, assigned_bb, eps=1e-6):
     offset = d2l.concat([offset_xy, offset_wh], axis=1)
     return offset
 
-def multibox_target(anchors, labels):
+def multibox_target(anchors: torch.tensor, labels: torch.tensor) -> \
+    tuple[torch.tensor, torch.tensor, torch.tensor]:
     """Label anchor boxes using ground-truth bounding boxes.
+
+    Parameters:
+        anchors (tensor): Tensor of shape (B, N, 4) representing anchor boxes.
+        labels (tensor): Tensor of shape (B, G, 5)
+        representing ground-truth bounding boxes.
+
+    Returns:
+        Tuple containing bbox_offset,
+        bbox_mask, and class_labels with shape
+        (B, N * 4), (B, N * 4), (B, N)
+
+    Example:
+        >>> anchors = tensor([[[0.00, 0.10, 0.20, 0.30],
+        ...                    [0.15, 0.20, 0.40, 0.40],
+        ...                    [0.63, 0.05, 0.88, 0.98],
+        ...                    [0.66, 0.45, 0.80, 0.80],
+        ...                    [0.57, 0.30, 0.92, 0.90]]])
+        >>> labels = tensor([[[0, 0.10, 0.08, 0.52, 0.92],
+        ...                   [1, 0.55, 0.20, 0.90, 0.88]]])
+        >>> multibox_target(anchors, labels)
+        (tensor([[-0.00e+00, -0.00e+00, -0.00e+00, -0.00e+00,  1.40e+00,  1.00e+01,
+                  2.59e+00,  7.18e+00, -1.20e+00,  2.69e-01,  1.68e+00, -1.57e+00,
+                 -0.00e+00, -0.00e+00, -0.00e+00, -0.00e+00, -5.71e-01, -1.00e+00,
+                  4.17e-06,  6.26e-01]]), tensor([[0., 0., 0., 0., 1., 1., 1., 1., 1., 1., 1., 1., 0., 0., 0., 0., 1., 1.,
+                 1., 1.]]), tensor([[0, 1, 2, 0, 2]]))
 
     Defined in :numref:`subsec_labeling-anchor-boxes`"""
     batch_size, anchors = labels.shape[0], anchors.squeeze(0)
@@ -1722,8 +1869,30 @@ def multibox_target(anchors, labels):
     class_labels = torch.stack(batch_class_labels)
     return (bbox_offset, bbox_mask, class_labels)
 
-def offset_inverse(anchors, offset_preds):
+def offset_inverse(anchors: torch.Tensor, offset_preds: torch.Tensor) -> torch.Tensor:
     """Predict bounding boxes based on anchor boxes with predicted offsets.
+
+    Parameters:
+        anchors: Tensor of anchor boxes with shape (#Ancors, 4).
+        offset_preds: Tensor of predicted offsets with shape (#Ancors, 4).
+
+    Returns:
+        Tensor of predicted bounding boxes with shape (#Ancors, 4).
+
+    Example:
+        >>> anchors = torch.Tensor([[0.10, 0.08, 0.52, 0.92],
+        ...                         [0.08, 0.20, 0.56, 0.95],
+        ...                         [0.15, 0.30, 0.62, 0.91],
+        ...                         [0.55, 0.20, 0.90, 0.88]])
+        >>> offset_preds = torch.Tensor([[0, 0, 0, 0],
+        ...                              [0, 0, 0, 0],
+        ...                              [0, 0, 0, 0],
+        ...                              [0, 0, 0, 0]])
+        >>> offset_inverse(anchors, offset_preds)
+        tensor([[0.10, 0.08, 0.52, 0.92],
+                [0.08, 0.20, 0.56, 0.95],
+                [0.15, 0.30, 0.62, 0.91],
+                [0.55, 0.20, 0.90, 0.88]])
 
     Defined in :numref:`subsec_labeling-anchor-boxes`"""
     anc = d2l.box_corner_to_center(anchors)
@@ -1733,9 +1902,26 @@ def offset_inverse(anchors, offset_preds):
     predicted_bbox = d2l.box_center_to_corner(pred_bbox)
     return predicted_bbox
 
-def nms(boxes, scores, iou_threshold):
+def nms(boxes: torch.Tensor, scores: torch.Tensor, iou_threshold: float) -> torch.Tensor:
     """Sort confidence scores of predicted bounding boxes.
 
+    Args:
+        boxes: Boxes with shape (#Boxes, 4).
+        scores: Scores with shape (#Boxes,).
+        iou_threshold: IOU Threshold.
+
+    Returns:
+        Indices of sorted predicted bounding boxes with needed confidence.
+
+    Example:
+        >>> boxes = torch.Tensor([[0.10, 0.08, 0.52, 0.92],
+        ...                       [0.08, 0.20, 0.56, 0.95],
+        ...                       [0.15, 0.30, 0.62, 0.91],
+        ...                       [0.55, 0.20, 0.90, 0.88]])
+        >>> scores = torch.Tensor([0.90, 0.80, 0.70, 0.90])
+        >>> nms(boxes, scores, 0.5)
+        tensor([0, 3])
+    
     Defined in :numref:`subsec_predicting-bounding-boxes-nms`"""
     B = torch.argsort(scores, dim=-1, descending=True)
     keep = []  # Indices of predicted bounding boxes that will be kept
@@ -1749,9 +1935,35 @@ def nms(boxes, scores, iou_threshold):
         B = B[inds + 1]
     return d2l.tensor(keep, device=boxes.device)
 
-def multibox_detection(cls_probs, offset_preds, anchors, nms_threshold=0.5,
-                       pos_threshold=0.009999999):
+def multibox_detection(cls_probs: torch.Tensor, offset_preds: torch.Tensor,
+                       anchors: torch.Tensor, nms_threshold: float = 0.5,
+                       pos_threshold: float = 0.009999999) -> torch.Tensor:
     """Predict bounding boxes using non-maximum suppression.
+
+    Args:
+        cls_probs: Class probabilities with shape (B, #Classes, #Anchors).
+        offset_preds: Offset predictions with shape (B, #Anchors * 4).
+        anchors: Anchors with shape (B, #Anchors).
+        nms_threshold: Threshold for non-maximum suppression.
+        pos_threshold: Threshold for positive predictions.
+
+    Returns:
+        Predicted bounding boxes with shape (B, #Anchors, 6).
+
+    Example:
+        >>> cls_probs = torch.Tensor([[[0.00, 0.00, 0.00, 0.00],
+        ...                           [0.90, 0.80, 0.70, 0.10],
+        ...                           [0.10, 0.20, 0.30, 0.90]]])
+        >>> offset_preds = torch.Tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+        >>> anchors = torch.Tensor([[0.10, 0.08, 0.52, 0.92],
+        ...                         [0.08, 0.20, 0.56, 0.95],
+        ...                         [0.15, 0.30, 0.62, 0.91],
+        ...                         [0.55, 0.20, 0.90, 0.88]])
+        >>> multibox_detection(cls_probs, offset_preds, anchors)
+        tensor([[[ 0.00,  0.90,  0.10,  0.08,  0.52,  0.92],
+                [ 1.00,  0.90,  0.55,  0.20,  0.90,  0.88],
+                [-1.00,  0.80,  0.08,  0.20,  0.56,  0.95],
+                [-1.00,  0.70,  0.15,  0.30,  0.62,  0.91]]])
 
     Defined in :numref:`subsec_predicting-bounding-boxes-nms`"""
     device, batch_size = cls_probs.device, cls_probs.shape[0]
