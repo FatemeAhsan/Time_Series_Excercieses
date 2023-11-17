@@ -1,4 +1,7 @@
 import doctest
+import os
+import shutil
+import zipfile
 
 def print_test_rs(verbose=True):
     doctest.testmod(verbose=verbose)
@@ -16,15 +19,17 @@ def print_locals(name, locals_):
             print(name, '-', k, '=', v)
 
 def set_kaggle_api():
-    !mkdir ~/.kaggle
-    !cp kaggle.json ~/.kaggle/
-    !chmod 600 ~/.kaggle/kaggle.json
+    os.makedirs('~/.kaggle', exist_ok=True)
+    shutil.copy('kaggle.json', ' ~/.kaggle/') 
+    os.chmod('~/.kaggle/kaggle.json', 600)  
 
 def download_kaggle_competition(name):
-    !kaggle competitions download -c {name}
+    os.system('kaggle competitions download -c {name}')
+    
 
 def unzip(name):
-    !unzip {name}
+    with zipfile.ZipFile(name, 'r') as zip_ref:
+        zip_ref.extractall('.')
 
 def read_csv_labels(fname):
     """Read `fname` to return a filename to label dictionary."""
