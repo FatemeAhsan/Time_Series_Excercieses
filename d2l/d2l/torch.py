@@ -121,10 +121,6 @@ class HyperParameters:
     """The base class of hyperparameters."""
 
     def save_hyperparameters(self, ignore=[]):
-        """Defined in :numref:`sec_oo-design`"""
-        raise NotImplemented
-
-    def save_hyperparameters(self, ignore=[]):
         """Save function arguments into class attributes.
     
         Defined in :numref:`sec_utils`"""
@@ -534,21 +530,18 @@ class Mobile_Phone_Hands(d2l.DataModule):
             batch_size=batch_size)
 
     def text_labels(self, indices):
-        """Return text labels.
-
-        Defined in :numref:`sec_fashion_mnist`"""
-        labels = ['t-shirt', 'trouser', 'pullover', 'dress', 'coat',
-                  'sandal', 'shirt', 'sneaker', 'bag', 'ankle boot']
+        """Return text labels."""
+        labels = ['0', '1']
         return [labels[int(i)] for i in indices]
 
     def get_dataloader(self, train):
-        """Defined in :numref:`sec_fashion_mnist`"""
+        """"""
         data = self.train if train else self.val
         return torch.utils.data.DataLoader(data, self.batch_size, shuffle=train,
                                            num_workers=self.num_workers)
 
     def visualize(self, batch, nrows=1, ncols=8, labels=[]):
-        """Defined in :numref:`sec_fashion_mnist`"""
+        """"""
         X, y = batch
         if not labels:
             labels = self.text_labels(y)
@@ -687,20 +680,15 @@ class LeNet(d2l.Classifier):
             nn.LazyLinear(num_classes))
 
 
-class MobileNetV2(d2l.Classifier):
+class CustomClassifier(d2l.Classifier):
     """The LeNet-5 model.
 
     Defined in :numref:`sec_lenet`"""
 
-    def __init__(self, lr=0.1, num_classes=2):
+    def __init__(self, net, lr=0.1):
         super().__init__()
         self.save_hyperparameters()
-        m2_model = torch.hub.load('pytorch/vision', 'mobilenet_v2', pretrained=True)
-        m2_model.classifier[1] = torch.nn.Linear(in_features=m2_model.classifier[1].in_features,
-                                                 out_features=num_classes)
-
-        nn.init.xavier_uniform_(m2_model.classifier[1].weight)
-        self.net = m2_model
+        self.net = net
 
 
 class Residual(nn.Module):
