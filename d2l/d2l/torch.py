@@ -522,12 +522,10 @@ class Mobile_Phone_Hands(d2l.DataModule):
             torchvision.transforms.ToTensor(),
             normalize])
 
-        self.train = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder(
-            os.path.join(data_dir, 'train'), transform=train_augs),
-            batch_size=batch_size, shuffle=True)
-        self.val = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder(
-            os.path.join(data_dir, 'val'), transform=val_augs),
-            batch_size=batch_size)
+        self.train = torchvision.datasets.ImageFolder(
+            os.path.join(data_dir, 'train'), transform=train_augs)
+        self.val = torchvision.datasets.ImageFolder(
+            os.path.join(data_dir, 'val'), transform=val_augs)
 
     def text_labels(self, indices):
         """Return text labels."""
