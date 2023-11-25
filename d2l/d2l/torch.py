@@ -235,7 +235,7 @@ class Module(d2l.nn_Module, d2l.HyperParameters):
         self.plot('loss', l, train=False)
 
 
-    def configure_optimizers(self, type_='sgd', param_group=True):
+    def configure_optimizers(self, type_='sgd', lr_period=2, lr_decay=0.9, param_group=True):
         """Defined in :numref:`sec_classification`"""
 
         params_ = self.parameters()
@@ -249,7 +249,10 @@ class Module(d2l.nn_Module, d2l.HyperParameters):
 
         optim_ = torch.optim.SGD(params_, lr=self.lr) if type_ == 'sgd' else \
             torch.optim.Adam(params_, lr=self.lr)
-        return optim_
+
+        scheduler = torch.optim.lr_scheduler.StepLR(optim_, lr_period, lr_decay)
+
+        return optim_, scheduler
 
     def apply_init(self, inputs, init=None):
         """Defined in :numref:`sec_lazy_init`"""
@@ -298,7 +301,7 @@ class Trainer(d2l.HyperParameters):
     def fit(self, model, data):
         self.prepare_data(data)
         self.prepare_model(model)
-        self.optim = model.configure_optimizers(type_='adam')
+        self.optim, self.scheduler = model.configure_optimizers(type_='adam')
         self.epoch = 0
         self.train_batch_idx = 0
         self.val_batch_idx = 0
@@ -328,6 +331,8 @@ class Trainer(d2l.HyperParameters):
             with torch.no_grad():
                 self.model.validation_step(self.prepare_batch(batch))
             self.val_batch_idx += 1
+        if self.scheduler:
+            self.scheduler.step()
 
     def __init__(self, max_epochs, num_gpus=0, gradient_clip_val=0):
         """Defined in :numref:`sec_use_gpu`"""
