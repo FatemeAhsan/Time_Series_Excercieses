@@ -231,7 +231,7 @@ class Module(d2l.nn_Module, d2l.HyperParameters):
         self.plot('loss', l, train=False)
 
 
-    def configure_optimizers(self, type_='sgd', lr_period=2, lr_decay=0.9, param_group=True):
+    def configure_optimizers(self, type_='sgd', lr_period=2, lr_decay=0.9, param_group=False):
         """Defined in :numref:`sec_classification`"""
 
         params_ = self.parameters()
